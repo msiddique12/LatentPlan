@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
@@ -123,3 +125,61 @@ def train_world_model(
 
     return epoch_losses
 
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Train LatentPlan world model")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--latent-dim", type=int, default=16)
+    parser.add_argument("--episodes", type=int, default=400)
+    parser.add_argument("--horizon", type=int, default=32)
+    parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--checkpoint", type=str, default="outputs/world_model.pt")
+    parser.add_argument("--cpu", action="store_true", help="Force CPU execution.")
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    device = "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
+
+    env = GridWorldEnv()
+    model = WorldModel(state_dim=env.state_dim, action_dim=env.n_actions, latent_dim=args.latent_dim)
+
+    transitions = collect_random_transitions(
+        env=env,
+        num_episodes=args.episodes,
+        horizon=args.horizon,
+        seed=args.seed,
+    )
+    losses = train_world_model(
+        model=model,
+        transitions=transitions,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.lr,
+        device=device,
+    )
+
+    ckpt_path = Path(args.checkpoint)
+    ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "latent_dim": args.latent_dim,
+            "action_dim": env.n_actions,
+            "state_dim": env.state_dim,
+            "losses": losses,
+        },
+        ckpt_path,
+    )
+    print(f"Saved checkpoint to: {ckpt_path}")
+
+
+if __name__ == "__main__":
+    main()
