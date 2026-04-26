@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from latent_plan.model import WorldModel
 from latent_plan.plan import plan_action
@@ -39,3 +40,16 @@ def test_planner_trajectory_length() -> None:
     assert len(best_sequence) == 7
     assert imagined_latents.shape[0] == 8
 
+
+def test_planner_raises_on_action_dim_mismatch() -> None:
+    model = WorldModel(state_dim=2, latent_dim=8, action_dim=4, hidden_dim=16)
+    state = np.array([0.1, 0.1], dtype=np.float32)
+
+    with pytest.raises(ValueError, match="action_dim mismatch"):
+        plan_action(
+            model=model,
+            state=state,
+            horizon=4,
+            num_sequences=16,
+            action_dim=3,
+        )

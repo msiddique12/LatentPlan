@@ -58,6 +58,14 @@ def plan_action(
         raise ValueError("horizon must be > 0")
     if num_sequences <= 0:
         raise ValueError("num_sequences must be > 0")
+    if action_dim <= 0:
+        raise ValueError("action_dim must be > 0")
+
+    model_action_dim = getattr(getattr(model, "dynamics", None), "action_dim", None)
+    if model_action_dim is not None and action_dim != model_action_dim:
+        raise ValueError(
+            f"action_dim mismatch: planner uses {action_dim}, model expects {model_action_dim}"
+        )
 
     rng = np.random.default_rng(seed)
     action_sequences = rng.integers(low=0, high=action_dim, size=(num_sequences, horizon), dtype=np.int64)
@@ -98,4 +106,3 @@ def plan_action(
         "predicted_return": best_value,
     }
     return best_first_action, info
-

@@ -41,11 +41,15 @@ A minimal world model that learns environment dynamics in latent space and plans
    ```bash
    python -m latent_plan.train --epochs 150
    ```
-3. Run full demo (train + planning + visualization):
+3. Run demo with planning + visualization (loads checkpoint from `outputs/world_model.pt` if present):
    ```bash
-   python -m latent_plan.main --epochs 150 --num-sequences 256 --plan-horizon 12
+   python -m latent_plan.main --num-sequences 256 --plan-horizon 12
    ```
-4. Run tests:
+4. Optional: force retraining inside `main.py`:
+   ```bash
+   python -m latent_plan.main --force-train --epochs 150 --num-sequences 256 --plan-horizon 12
+   ```
+5. Run tests:
    ```bash
    pytest -q
    ```
