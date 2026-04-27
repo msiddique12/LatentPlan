@@ -45,11 +45,20 @@ def decode_latent_trajectory_to_positions(
     env: GridWorldEnv,
     latent_trajectory: np.ndarray,
     device: str = "cpu",
+    use_decoder: bool = True,
 ) -> List[GridPos]:
     """
-    Approximate latent -> grid position by nearest encoded valid grid cell.
-    This avoids adding a decoder while still making trajectory overlays interpretable.
+    Decode latent trajectory to grid positions.
+
+    Uses decoder-based projection when available, with nearest-latent fallback.
     """
+    if use_decoder and hasattr(model, "decode"):
+        model.eval()
+        with torch.no_grad():
+            latent_tensor = torch.tensor(latent_trajectory, dtype=torch.float32, device=device)
+            decoded_state = model.decode(latent_tensor).cpu().numpy()
+        return [env.denormalize_state(state) for state in decoded_state]
+
     valid_positions = env.valid_positions()
     valid_states = np.asarray(
         [
@@ -151,4 +160,3 @@ def save_rollout_animation(
     ani.save(output_path, fps=fps)
     plt.close(fig)
     return output_path
-
