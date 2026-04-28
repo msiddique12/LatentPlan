@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -112,6 +113,19 @@ def evaluate_planner_on_model(
 def run(args: argparse.Namespace) -> Path:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / "run_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "created_at_utc": datetime.now(timezone.utc).isoformat(),
+                "mode": "planner_comparison",
+                "args": vars(args),
+                "planners": ["random", "cem"],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     planners = ["random", "cem"]
     results: Dict[str, List[Dict[str, float]]] = {planner: [] for planner in planners}
@@ -161,6 +175,7 @@ def run(args: argparse.Namespace) -> Path:
     plt.close(fig)
 
     print(f"Saved comparison summary to: {summary_path}")
+    print(f"Saved run manifest to: {manifest_path}")
     return summary_path
 
 

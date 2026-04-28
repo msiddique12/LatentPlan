@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
@@ -191,6 +192,26 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    manifest_path = output_dir / "run_manifest.json"
+    manifest_payload: Dict[str, Any] = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "mode": "main_demo",
+        "args": vars(args),
+        "env": {
+            "width": env.width,
+            "height": env.height,
+            "start": env.start,
+            "goal": env.goal,
+            "obstacles": sorted(list(env.obstacles)),
+        },
+        "model": {
+            "latent_dim": int(getattr(model, "encoder").net[-1].out_features),
+            "num_dynamics_models": model.num_dynamics_models,
+        },
+        "device": device,
+    }
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+
     trajectory_plot_path = save_trajectory_plot(
         env=env,
         real_trajectory=real_path,
@@ -234,6 +255,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
     print(f"Saved trajectory plot to: {trajectory_plot_path}")
     print(f"Saved loss curve to: {loss_plot_path}")
     print(f"Saved metrics to: {metrics_path}")
+    print(f"Saved run manifest to: {manifest_path}")
     print(f"Alignment match ratio: {metrics.match_ratio:.3f}")
     print(f"Goal reached: {bool(metrics.goal_reached)}")
     return trajectory_plot_path, loss_plot_path

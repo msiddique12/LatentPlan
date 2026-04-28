@@ -19,6 +19,7 @@ A minimal world model that learns environment dynamics in latent space and plans
 - GIF placeholder: `outputs/planning_rollout.gif`
 - Image placeholder: `outputs/trajectory_comparison.png`
 - Metrics placeholder: `outputs/metrics.json`
+- Repro manifest placeholder: `outputs/run_manifest.json`
 
 ## Results
 - Works for short horizons where latent predictions stay accurate.
@@ -61,6 +62,7 @@ A minimal world model that learns environment dynamics in latent space and plans
    Saves:
    - `outputs/eval/planner_comparison.json` (mean/std/min/max per metric and raw per-seed results)
    - `outputs/eval/planner_comparison.png`
+   - `outputs/eval/run_manifest.json` (exact run configuration)
 6. Optional: force retraining inside `main.py`:
    ```bash
    python -m latent_plan.main --force-train --epochs 150 --num-sequences 256 --plan-horizon 12 --num-dynamics-models 3 --risk-penalty 0.05 --goal-bonus 0.1
