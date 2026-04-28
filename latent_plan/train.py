@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
@@ -220,6 +221,25 @@ def train_world_model(
     )
 
 
+def save_train_history_csv(history: TrainHistory, output_path: Path) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "total", "transition", "reward", "reconstruction", "multistep"])
+        for idx, total in enumerate(history.total):
+            writer.writerow(
+                [
+                    idx + 1,
+                    total,
+                    history.transition[idx],
+                    history.reward[idx],
+                    history.reconstruction[idx],
+                    history.multistep[idx],
+                ]
+            )
+    return output_path
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train LatentPlan world model")
     parser.add_argument("--seed", type=int, default=0)
@@ -294,6 +314,8 @@ def main() -> None:
         ckpt_path,
     )
     print(f"Saved checkpoint to: {ckpt_path}")
+    history_path = save_train_history_csv(history, ckpt_path.with_name("train_history.csv"))
+    print(f"Saved training history to: {history_path}")
 
 
 if __name__ == "__main__":

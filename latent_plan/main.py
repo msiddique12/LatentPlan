@@ -15,7 +15,7 @@ from latent_plan.env import GridPos, GridWorldEnv
 from latent_plan.metrics import compute_episode_metrics
 from latent_plan.model import WorldModel
 from latent_plan.plan import plan_action
-from latent_plan.train import TrainHistory, collect_random_transitions, train_world_model
+from latent_plan.train import TrainHistory, collect_random_transitions, save_train_history_csv, train_world_model
 from latent_plan.visualize import (
     decode_latent_trajectory_to_positions,
     save_rollout_animation,
@@ -191,6 +191,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    history_csv_path = save_train_history_csv(history, output_dir / "train_history.csv")
 
     manifest_path = output_dir / "run_manifest.json"
     manifest_payload: Dict[str, Any] = {
@@ -255,6 +256,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
     print(f"Saved trajectory plot to: {trajectory_plot_path}")
     print(f"Saved loss curve to: {loss_plot_path}")
     print(f"Saved metrics to: {metrics_path}")
+    print(f"Saved training history to: {history_csv_path}")
     print(f"Saved run manifest to: {manifest_path}")
     print(f"Alignment match ratio: {metrics.match_ratio:.3f}")
     print(f"Goal reached: {bool(metrics.goal_reached)}")
