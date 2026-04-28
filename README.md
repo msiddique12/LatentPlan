@@ -10,12 +10,15 @@ A minimal world model that learns environment dynamics in latent space and plans
 
 ## Architecture
 - `Encoder`: MLP from normalized 2D state to latent embedding.
-- `Dynamics model`: MLP from `(z_t, action)` to `z_{t+1}`.
-- `Planner`: random-shooting in latent space; sample action sequences, roll out latent transitions, sum predicted rewards, execute best first action.
+- `Dynamics model`: supports an ensemble of MLPs from `(z_t, action)` to `z_{t+1}` for uncertainty-aware planning.
+- `Reward model`: predicts reward from latent state.
+- `Decoder`: reconstructs normalized state from latent (`z -> s`) for improved interpretability.
+- `Planner`: supports `random` shooting and `cem` (cross-entropy method), plus discounting, risk penalty, and goal shaping.
 
 ## Demo
 - GIF placeholder: `outputs/planning_rollout.gif`
 - Image placeholder: `outputs/trajectory_comparison.png`
+- Metrics placeholder: `outputs/metrics.json`
 
 ## Results
 - Works for short horizons where latent predictions stay accurate.
@@ -24,10 +27,12 @@ A minimal world model that learns environment dynamics in latent space and plans
 ## Project Structure
 - `latent_plan/env.py`: deterministic 2D gridworld with obstacles and goal.
 - `latent_plan/model.py`: encoder, dynamics, reward model, and world model wrapper.
-- `latent_plan/train.py`: random trajectory collection and supervised world-model training.
-- `latent_plan/plan.py`: reusable latent planner and imagined rollout utilities.
+- `latent_plan/train.py`: random trajectory collection and supervised training (transition + reward + reconstruction losses).
+- `latent_plan/plan.py`: reusable latent planner with random-shooting and CEM.
 - `latent_plan/visualize.py`: grid rendering, trajectory overlays, and optional animation.
 - `latent_plan/main.py`: end-to-end demo (train, plan, evaluate, visualize).
+- `latent_plan/evaluate.py`: batch comparison (`random` vs `cem`) across seeds.
+- `app.py`: streamlit app for interactive demo runs.
 - `tests/test_env.py`: movement and boundary tests for gridworld.
 - `tests/test_model.py`: shape and forward-pass checks for model components.
 - `tests/test_planner.py`: planner validity and imagined trajectory-length checks.
@@ -45,11 +50,26 @@ A minimal world model that learns environment dynamics in latent space and plans
    ```bash
    python -m latent_plan.main --num-sequences 256 --plan-horizon 12
    ```
-4. Optional: force retraining inside `main.py`:
+4. Use CEM planning and save animation:
    ```bash
-   python -m latent_plan.main --force-train --epochs 150 --num-sequences 256 --plan-horizon 12
+   python -m latent_plan.main --planner cem --num-sequences 256 --cem-iters 5 --save-animation
    ```
-5. Run tests:
+5. Compare random vs CEM across seeds:
+   ```bash
+   python -m latent_plan.evaluate --num-seeds 5 --epochs 30
+   ```
+   Saves:
+   - `outputs/eval/planner_comparison.json` (mean/std/min/max per metric and raw per-seed results)
+   - `outputs/eval/planner_comparison.png`
+6. Optional: force retraining inside `main.py`:
+   ```bash
+   python -m latent_plan.main --force-train --epochs 150 --num-sequences 256 --plan-horizon 12 --num-dynamics-models 3 --risk-penalty 0.05 --goal-bonus 0.1
+   ```
+7. Optional interactive UI:
+   ```bash
+   streamlit run app.py
+   ```
+8. Run tests:
    ```bash
    pytest -q
    ```
