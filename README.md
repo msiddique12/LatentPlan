@@ -21,6 +21,7 @@ A minimal world model that learns environment dynamics in latent space and plans
 - Metrics placeholder: `outputs/metrics.json`
 - Repro manifest placeholder: `outputs/run_manifest.json`
 - Train history CSV placeholder: `outputs/train_history.csv`
+- Planning diagnostics placeholder: `outputs/planning_diagnostics.png`
 
 ## Results
 - Works for short horizons where latent predictions stay accurate.

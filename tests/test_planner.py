@@ -36,9 +36,11 @@ def test_planner_trajectory_length() -> None:
 
     best_sequence = info["best_sequence"]
     imagined_latents = info["imagined_latents"]
+    imagined_uncertainty = info["imagined_uncertainty"]
 
     assert len(best_sequence) == 7
     assert imagined_latents.shape[0] == 8
+    assert imagined_uncertainty.shape[0] == 7
 
 
 def test_planner_cem_returns_valid_action() -> None:

@@ -174,6 +174,8 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
         return_info=True,
     )
     imagined_latents = cast(np.ndarray, info["imagined_latents"])
+    imagined_rewards = cast(np.ndarray, info["imagined_rewards"])
+    imagined_uncertainty = cast(np.ndarray, info["imagined_uncertainty"])
     best_sequence = cast(List[int], info["best_sequence"])
     imagined_path = decode_latent_trajectory_to_positions(
         model=model,
@@ -233,6 +235,20 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
     fig.savefig(loss_plot_path, dpi=150)
     plt.close(fig)
 
+    fig, ax = plt.subplots(figsize=(6, 3))
+    steps = np.arange(1, len(imagined_rewards) + 1)
+    ax.plot(steps, imagined_rewards, label="Predicted Reward", color="#1c7ed6", linewidth=2)
+    if imagined_uncertainty.size > 0:
+        ax.plot(steps, imagined_uncertainty, label="Uncertainty", color="#d9480f", linewidth=2)
+    ax.set_xlabel("Step")
+    ax.set_title("Planning Diagnostics")
+    ax.legend(loc="best")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    diagnostics_plot_path = output_dir / "planning_diagnostics.png"
+    fig.savefig(diagnostics_plot_path, dpi=150)
+    plt.close(fig)
+
     metrics = compute_episode_metrics(
         imagined_path=imagined_path,
         real_path=real_path,
@@ -255,6 +271,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
 
     print(f"Saved trajectory plot to: {trajectory_plot_path}")
     print(f"Saved loss curve to: {loss_plot_path}")
+    print(f"Saved planning diagnostics to: {diagnostics_plot_path}")
     print(f"Saved metrics to: {metrics_path}")
     print(f"Saved training history to: {history_csv_path}")
     print(f"Saved run manifest to: {manifest_path}")

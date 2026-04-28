@@ -38,6 +38,45 @@ def rollout_latent_trajectory(
     return latent_array, reward_array
 
 
+def rollout_latent_diagnostics(
+    model: WorldModel,
+    state: np.ndarray,
+    actions: Iterable[int],
+    device: str = "cpu",
+) -> Dict[str, np.ndarray]:
+    action_list = list(actions)
+    state_tensor = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+    action_tensor = torch.tensor(action_list, dtype=torch.long, device=device)
+
+    latents: List[Tensor] = []
+    rewards: List[Tensor] = []
+    uncertainties: List[Tensor] = []
+
+    model.eval()
+    with torch.no_grad():
+        z = model.encode(state_tensor)
+        latents.append(z.squeeze(0))
+        for a in action_tensor:
+            if model.num_dynamics_models > 1:
+                z_ensemble = model.predict_next_ensemble(z, a.view(1))
+                z = z_ensemble.mean(dim=0)
+                uncertainty = z_ensemble.var(dim=0).mean(dim=1)
+            else:
+                z = model.predict_next(z, a.view(1))
+                uncertainty = torch.zeros(1, device=device)
+
+            r = model.predict_reward(z)
+            latents.append(z.squeeze(0))
+            rewards.append(r.squeeze(0))
+            uncertainties.append(uncertainty.squeeze(0))
+
+    return {
+        "latents": torch.stack(latents, dim=0).cpu().numpy(),
+        "rewards": torch.stack(rewards, dim=0).cpu().numpy() if rewards else np.empty((0,)),
+        "uncertainty": torch.stack(uncertainties, dim=0).cpu().numpy() if uncertainties else np.empty((0,)),
+    }
+
+
 def _validate_planner_args(
     model: WorldModel,
     horizon: int,
@@ -286,7 +325,7 @@ def plan_action(
     if not return_info:
         return best_first_action
 
-    imagined_latents, imagined_rewards = rollout_latent_trajectory(
+    diagnostics = rollout_latent_diagnostics(
         model=model,
         state=state,
         actions=best_sequence,
@@ -294,7 +333,8 @@ def plan_action(
     )
 
     info: Dict[str, np.ndarray | List[int] | float | str] = {"best_sequence": best_sequence}
-    info["imagined_latents"] = imagined_latents
-    info["imagined_rewards"] = imagined_rewards
+    info["imagined_latents"] = diagnostics["latents"]
+    info["imagined_rewards"] = diagnostics["rewards"]
+    info["imagined_uncertainty"] = diagnostics["uncertainty"]
     info["predicted_return"] = best_value; info["planner_method"] = method
     return best_first_action, info
