@@ -64,6 +64,8 @@ A minimal world model that learns environment dynamics in latent space and plans
    Saves:
    - `outputs/eval/planner_comparison.json` (mean/std/min/max per metric and raw per-seed results)
    - `outputs/eval/planner_comparison.png`
+   - `outputs/eval/uncertainty_calibration.json` (calibration bins + ECE/correlation/slope)
+   - `outputs/eval/uncertainty_calibration.png`
    - `outputs/eval/run_manifest.json` (exact run configuration)
 6. Optional: force retraining inside `main.py`:
    ```bash
