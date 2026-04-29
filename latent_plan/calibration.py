@@ -137,3 +137,24 @@ def summarize_calibration(
         "ece": float(ece),
     }
 
+
+def suggest_risk_penalty(calibration_stats: Dict[str, float]) -> Dict[str, float]:
+    """
+    Heuristic risk-penalty recommendation from calibration quality.
+
+    If slope is high and correlation is positive, uncertainty tracks error well,
+    so stronger penalty is usually beneficial.
+    """
+    slope = max(0.0, float(calibration_stats.get("slope", 0.0)))
+    corr = max(0.0, float(calibration_stats.get("corr", 0.0)))
+    ece = max(0.0, float(calibration_stats.get("ece", 0.0)))
+
+    base = min(0.3, 0.05 + 0.2 * corr + 0.1 * min(slope, 1.0))
+    conservative = min(0.4, base + 0.1 + 0.5 * min(ece, 0.2))
+    aggressive = max(0.0, base - 0.03)
+
+    return {
+        "aggressive": float(aggressive),
+        "default": float(base),
+        "conservative": float(conservative),
+    }

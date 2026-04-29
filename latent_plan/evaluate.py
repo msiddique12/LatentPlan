@@ -13,6 +13,7 @@ from latent_plan.benchmarks import create_env, get_benchmark_specs
 from latent_plan.calibration import (
     build_calibration_bins,
     collect_uncertainty_error_samples,
+    suggest_risk_penalty,
     summarize_calibration,
 )
 from latent_plan.env import GridWorldEnv
@@ -194,6 +195,7 @@ def run(args: argparse.Namespace) -> Path:
     all_error = np.concatenate(error_chunks, axis=0) if error_chunks else np.empty((0,))
     bins = build_calibration_bins(all_uncertainty, all_error, num_bins=args.calibration_bins)
     calibration_stats = summarize_calibration(all_uncertainty, all_error, bins)
+    risk_penalty_suggestion = suggest_risk_penalty(calibration_stats)
 
     summary_path = output_dir / "planner_comparison.json"
     summary_path.write_text(
@@ -212,6 +214,7 @@ def run(args: argparse.Namespace) -> Path:
         json.dumps(
             {
                 "stats": calibration_stats,
+                "risk_penalty_suggestion": risk_penalty_suggestion,
                 "bins": [item.to_dict() for item in bins],
             },
             indent=2,

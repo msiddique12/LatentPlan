@@ -1,6 +1,11 @@
 import numpy as np
 
-from latent_plan.calibration import build_calibration_bins, collect_uncertainty_error_samples, summarize_calibration
+from latent_plan.calibration import (
+    build_calibration_bins,
+    collect_uncertainty_error_samples,
+    suggest_risk_penalty,
+    summarize_calibration,
+)
 from latent_plan.env import GridWorldEnv
 from latent_plan.model import WorldModel
 from latent_plan.train import collect_random_transitions
@@ -30,3 +35,8 @@ def test_collect_uncertainty_error_samples_shape() -> None:
     out = collect_uncertainty_error_samples(model=model, transitions=transitions)
     assert out["uncertainty"].shape == out["error"].shape
     assert out["uncertainty"].ndim == 1
+
+
+def test_suggest_risk_penalty_monotonic() -> None:
+    suggestion = suggest_risk_penalty({"corr": 0.7, "slope": 0.4, "ece": 0.05})
+    assert suggestion["aggressive"] <= suggestion["default"] <= suggestion["conservative"]
