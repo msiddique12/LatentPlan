@@ -35,6 +35,7 @@ A minimal world model that learns environment dynamics in latent space and plans
 - `latent_plan/visualize.py`: grid rendering, trajectory overlays, and optional animation.
 - `latent_plan/main.py`: end-to-end demo (train, plan, evaluate, visualize).
 - `latent_plan/evaluate.py`: batch comparison (`random` vs `cem`) across seeds.
+- `latent_plan/benchmarks.py`: fixed benchmark layouts for repeatable evaluation.
 - `app.py`: streamlit app for interactive demo runs.
 - `tests/test_env.py`: movement and boundary tests for gridworld.
 - `tests/test_model.py`: shape and forward-pass checks for model components.
@@ -61,8 +62,12 @@ A minimal world model that learns environment dynamics in latent space and plans
    ```bash
    python -m latent_plan.evaluate --num-seeds 5 --epochs 30
    ```
+   Optional benchmark set:
+   ```bash
+   python -m latent_plan.evaluate --benchmark-set hard --num-seeds 5 --epochs 30
+   ```
    Saves:
-   - `outputs/eval/planner_comparison.json` (mean/std/min/max per metric and raw per-seed results)
+   - `outputs/eval/planner_comparison.json` (summary by benchmark, pooled summary, and raw records)
    - `outputs/eval/planner_comparison.png`
    - `outputs/eval/uncertainty_calibration.json` (calibration bins + ECE/correlation/slope)
    - `outputs/eval/uncertainty_calibration.png`

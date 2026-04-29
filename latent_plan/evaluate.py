@@ -9,6 +9,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
+from latent_plan.benchmarks import create_env, get_benchmark_specs
 from latent_plan.calibration import (
     build_calibration_bins,
     collect_uncertainty_error_samples,
@@ -25,6 +26,7 @@ from latent_plan.visualize import decode_latent_trajectory_to_positions
 
 def train_model_for_seed(
     seed: int,
+    env: GridWorldEnv,
     epochs: int,
     collect_episodes: int,
     collect_horizon: int,
@@ -32,7 +34,6 @@ def train_model_for_seed(
     num_dynamics_models: int,
 ) -> tuple[GridWorldEnv, WorldModel, TransitionBatch]:
     set_seed(seed)
-    env = GridWorldEnv()
     model = WorldModel(
         state_dim=env.state_dim,
         action_dim=env.n_actions,
@@ -126,6 +127,7 @@ def run(args: argparse.Namespace) -> Path:
                 "mode": "planner_comparison",
                 "args": vars(args),
                 "planners": ["random", "cem"],
+                "benchmark_set": args.benchmark_set,
             },
             indent=2,
         ),
@@ -133,51 +135,78 @@ def run(args: argparse.Namespace) -> Path:
     )
 
     planners = ["random", "cem"]
-    results: Dict[str, List[Dict[str, float]]] = {planner: [] for planner in planners}
+    benchmark_specs = get_benchmark_specs(args.benchmark_set)
+    results: Dict[str, Dict[str, List[Dict[str, float]]]] = {
+        spec.name: {planner: [] for planner in planners}
+        for spec in benchmark_specs
+    }
     uncertainty_chunks: List[np.ndarray] = []
     error_chunks: List[np.ndarray] = []
 
-    for seed in range(args.start_seed, args.start_seed + args.num_seeds):
-        env, model, transitions = train_model_for_seed(
-            seed=seed,
-            epochs=args.epochs,
-            collect_episodes=args.collect_episodes,
-            collect_horizon=args.collect_horizon,
-            latent_dim=args.latent_dim,
-            num_dynamics_models=args.num_dynamics_models,
-        )
-
-        calibration_samples = collect_uncertainty_error_samples(model=model, transitions=transitions, device="cpu")
-        uncertainty_chunks.append(calibration_samples["uncertainty"])
-        error_chunks.append(calibration_samples["error"])
-
-        for planner in planners:
-            metrics = evaluate_planner_on_model(
-                env=env,
-                model=model,
-                planner=planner,
+    for spec in benchmark_specs:
+        for seed in range(args.start_seed, args.start_seed + args.num_seeds):
+            env, model, transitions = train_model_for_seed(
                 seed=seed,
-                plan_horizon=args.plan_horizon,
-                num_sequences=args.num_sequences,
-                discount=args.discount,
-                risk_penalty=args.risk_penalty,
-                goal_bonus=args.goal_bonus,
-                goal_tolerance=args.goal_tolerance,
-            )
-            results[planner].append(metrics)
-            print(
-                f"seed={seed:3d} planner={planner:6s} "
-                f"match={metrics['match_ratio']:.3f} goal={int(metrics['goal_reached'])}"
+                env=create_env(spec),
+                epochs=args.epochs,
+                collect_episodes=args.collect_episodes,
+                collect_horizon=args.collect_horizon,
+                latent_dim=args.latent_dim,
+                num_dynamics_models=args.num_dynamics_models,
             )
 
-    summary = {planner: summarize_metric_dicts(records) for planner, records in results.items()}
+            calibration_samples = collect_uncertainty_error_samples(model=model, transitions=transitions, device="cpu")
+            uncertainty_chunks.append(calibration_samples["uncertainty"])
+            error_chunks.append(calibration_samples["error"])
+
+            for planner in planners:
+                metrics = evaluate_planner_on_model(
+                    env=env,
+                    model=model,
+                    planner=planner,
+                    seed=seed,
+                    plan_horizon=args.plan_horizon,
+                    num_sequences=args.num_sequences,
+                    discount=args.discount,
+                    risk_penalty=args.risk_penalty,
+                    goal_bonus=args.goal_bonus,
+                    goal_tolerance=args.goal_tolerance,
+                )
+                results[spec.name][planner].append(metrics)
+                print(
+                    f"bench={spec.name:14s} seed={seed:3d} planner={planner:6s} "
+                    f"match={metrics['match_ratio']:.3f} goal={int(metrics['goal_reached'])}"
+                )
+
+    summary: Dict[str, Dict[str, Dict[str, Dict[str, float]]]] = {}
+    for spec in benchmark_specs:
+        summary[spec.name] = {
+            planner: summarize_metric_dicts(results[spec.name][planner])
+            for planner in planners
+        }
+
+    pooled_results: Dict[str, List[Dict[str, float]]] = {planner: [] for planner in planners}
+    for spec in benchmark_specs:
+        for planner in planners:
+            pooled_results[planner].extend(results[spec.name][planner])
+    pooled_summary = {planner: summarize_metric_dicts(pooled_results[planner]) for planner in planners}
     all_uncertainty = np.concatenate(uncertainty_chunks, axis=0) if uncertainty_chunks else np.empty((0,))
     all_error = np.concatenate(error_chunks, axis=0) if error_chunks else np.empty((0,))
     bins = build_calibration_bins(all_uncertainty, all_error, num_bins=args.calibration_bins)
     calibration_stats = summarize_calibration(all_uncertainty, all_error, bins)
 
     summary_path = output_dir / "planner_comparison.json"
-    summary_path.write_text(json.dumps({"summary": summary, "raw": results}, indent=2), encoding="utf-8")
+    summary_path.write_text(
+        json.dumps(
+            {
+                "summary_by_benchmark": summary,
+                "summary_pooled": pooled_summary,
+                "raw_by_benchmark": results,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     calibration_path = output_dir / "uncertainty_calibration.json"
     calibration_path.write_text(
         json.dumps(
@@ -192,7 +221,7 @@ def run(args: argparse.Namespace) -> Path:
 
     fig, ax = plt.subplots(figsize=(6, 4))
     labels = planners
-    scores = [summary[p].get("match_ratio", {}).get("mean", 0.0) for p in planners]
+    scores = [pooled_summary[p].get("match_ratio", {}).get("mean", 0.0) for p in planners]
     ax.bar(labels, scores, color=["#1c7ed6", "#2b8a3e"])
     ax.set_ylim(0.0, 1.0)
     ax.set_ylabel("Mean Match Ratio")
@@ -238,6 +267,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--goal-bonus", type=float, default=0.1)
     parser.add_argument("--goal-tolerance", type=float, default=0.1)
     parser.add_argument("--calibration-bins", type=int, default=10)
+    parser.add_argument("--benchmark-set", type=str, choices=["easy", "hard", "all"], default="all")
     parser.add_argument("--output-dir", type=str, default="outputs/eval")
     return parser
 
