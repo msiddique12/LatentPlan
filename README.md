@@ -82,6 +82,8 @@ A minimal world model that learns environment dynamics in latent space and plans
    Saves:
    - `outputs/eval/planner_comparison.json` (summary by benchmark, pooled summary, and raw records)
    - `outputs/eval/planner_comparison.png`
+   - `outputs/eval/planner_match_by_benchmark.png`
+   - `outputs/eval/planner_goal_by_benchmark.png`
    - `outputs/eval/uncertainty_calibration.json` (calibration bins + ECE/correlation/slope)
      and suggested `risk_penalty` values (`aggressive/default/conservative`)
    - `outputs/eval/uncertainty_calibration.png`

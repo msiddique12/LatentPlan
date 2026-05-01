@@ -26,6 +26,37 @@ from latent_plan.train import TransitionBatch, collect_random_transitions, train
 from latent_plan.visualize import decode_latent_trajectory_to_positions
 
 
+def save_per_benchmark_plot(
+    output_dir: Path,
+    summary: Dict[str, Dict[str, Dict[str, Dict[str, float]]]],
+    planners: List[str],
+    metric_name: str,
+    title: str,
+    filename: str,
+) -> Path:
+    benchmarks = list(summary.keys())
+    x = np.arange(len(benchmarks), dtype=np.float32)
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(max(8, 2 + 1.6 * len(benchmarks)), 4))
+    for i, planner in enumerate(planners):
+        means = [summary[b][planner].get(metric_name, {}).get("mean", 0.0) for b in benchmarks]
+        shift = (i - (len(planners) - 1) / 2) * width
+        ax.bar(x + shift, means, width=width, label=planner)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(benchmarks, rotation=20, ha="right")
+    ax.set_ylabel(metric_name)
+    ax.set_title(title)
+    ax.legend(loc="best")
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    path = output_dir / filename
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return path
+
+
 def train_model_for_seed(
     seed: int,
     env: GridWorldEnv,
@@ -234,6 +265,23 @@ def run(args: argparse.Namespace) -> Path:
     fig.savefig(output_dir / "planner_comparison.png", dpi=150)
     plt.close(fig)
 
+    match_plot_path = save_per_benchmark_plot(
+        output_dir=output_dir,
+        summary=summary,
+        planners=planners,
+        metric_name="match_ratio",
+        title="Match Ratio by Benchmark",
+        filename="planner_match_by_benchmark.png",
+    )
+    goal_plot_path = save_per_benchmark_plot(
+        output_dir=output_dir,
+        summary=summary,
+        planners=planners,
+        metric_name="goal_reached",
+        title="Goal-Reached Rate by Benchmark",
+        filename="planner_goal_by_benchmark.png",
+    )
+
     fig, ax = plt.subplots(figsize=(6, 4))
     x = [item.mean_uncertainty for item in bins if item.count > 0]
     y = [item.mean_error for item in bins if item.count > 0]
@@ -250,6 +298,8 @@ def run(args: argparse.Namespace) -> Path:
     plt.close(fig)
 
     print(f"Saved comparison summary to: {summary_path}")
+    print(f"Saved per-benchmark match plot to: {match_plot_path}")
+    print(f"Saved per-benchmark goal plot to: {goal_plot_path}")
     print(f"Saved uncertainty calibration to: {calibration_path}")
     print(f"Saved run manifest to: {manifest_path}")
     return summary_path
