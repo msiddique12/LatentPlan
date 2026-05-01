@@ -16,6 +16,7 @@ from latent_plan.calibration import (
     suggest_risk_penalty,
     summarize_calibration,
 )
+from latent_plan.config import parse_args_with_optional_config
 from latent_plan.env import GridWorldEnv
 from latent_plan.main import run_action_sequence_episode, set_seed
 from latent_plan.metrics import compute_episode_metrics, summarize_metric_dicts
@@ -256,6 +257,7 @@ def run(args: argparse.Namespace) -> Path:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Compare planners across random seeds")
+    parser.add_argument("--config", type=str, default="", help="Path to JSON config file.")
     parser.add_argument("--start-seed", type=int, default=0)
     parser.add_argument("--num-seeds", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=30)
@@ -276,4 +278,4 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    run(build_parser().parse_args())
+    run(parse_args_with_optional_config(build_parser()))

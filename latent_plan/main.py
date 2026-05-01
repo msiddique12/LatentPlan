@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from latent_plan.config import parse_args_with_optional_config
 from latent_plan.env import GridPos, GridWorldEnv
 from latent_plan.metrics import compute_episode_metrics
 from latent_plan.model import WorldModel
@@ -282,6 +283,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="LatentPlan demo")
+    parser.add_argument("--config", type=str, default="", help="Path to JSON config file.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--latent-dim", type=int, default=16)
     parser.add_argument("--collect-episodes", type=int, default=400)
@@ -320,4 +322,4 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    run_demo(build_parser().parse_args())
+    run_demo(parse_args_with_optional_config(build_parser()))

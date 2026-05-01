@@ -1,0 +1,22 @@
+{
+  "seed": 0,
+  "force_train": true,
+  "epochs": 80,
+  "collect_episodes": 450,
+  "collect_horizon": 28,
+  "planner": "cem",
+  "plan_horizon": 14,
+  "num_sequences": 320,
+  "cem_iters": 6,
+  "cem_elite_frac": 0.15,
+  "cem_alpha": 0.7,
+  "num_dynamics_models": 4,
+  "discount": 0.99,
+  "risk_penalty": 0.08,
+  "goal_bonus": 0.15,
+  "goal_tolerance": 0.08,
+  "save_animation": true,
+  "animation_fps": 5,
+  "output_dir": "outputs/demo_showcase",
+  "checkpoint": "outputs/demo_showcase/world_model.pt"
+}

@@ -54,6 +54,10 @@ A minimal world model that learns environment dynamics in latent space and plans
    ```bash
    python -m latent_plan.main --num-sequences 256 --plan-horizon 12
    ```
+   Or use laptop preset:
+   ```bash
+   python -m latent_plan.main --config configs/demo_fast.json
+   ```
 4. Use CEM planning and save animation:
    ```bash
    python -m latent_plan.main --planner cem --num-sequences 256 --cem-iters 5 --save-animation
@@ -61,6 +65,10 @@ A minimal world model that learns environment dynamics in latent space and plans
 5. Compare random vs CEM across seeds:
    ```bash
    python -m latent_plan.evaluate --num-seeds 5 --epochs 30
+   ```
+   Laptop preset:
+   ```bash
+   python -m latent_plan.evaluate --config configs/eval_laptop.json
    ```
    Optional benchmark set:
    ```bash
