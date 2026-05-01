@@ -22,6 +22,7 @@ A minimal world model that learns environment dynamics in latent space and plans
 - Repro manifest placeholder: `outputs/run_manifest.json`
 - Train history CSV placeholder: `outputs/train_history.csv`
 - Planning diagnostics placeholder: `outputs/planning_diagnostics.png`
+- Auto risk calibration placeholder: `outputs/risk_calibration.json`
 
 ## Results
 - Works for short horizons where latent predictions stay accurate.
@@ -61,6 +62,10 @@ A minimal world model that learns environment dynamics in latent space and plans
 4. Use CEM planning and save animation:
    ```bash
    python -m latent_plan.main --planner cem --num-sequences 256 --cem-iters 5 --save-animation
+   ```
+   Auto-tune risk penalty from uncertainty calibration:
+   ```bash
+   python -m latent_plan.main --planner cem --auto-risk-penalty --auto-risk-profile default
    ```
 5. Compare random vs CEM across seeds:
    ```bash

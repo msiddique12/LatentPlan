@@ -11,12 +11,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from latent_plan.calibration import (
+    build_calibration_bins,
+    collect_uncertainty_error_samples,
+    suggest_risk_penalty,
+    summarize_calibration,
+)
 from latent_plan.config import parse_args_with_optional_config
 from latent_plan.env import GridPos, GridWorldEnv
 from latent_plan.metrics import compute_episode_metrics
 from latent_plan.model import WorldModel
 from latent_plan.plan import plan_action
-from latent_plan.train import TrainHistory, collect_random_transitions, save_train_history_csv, train_world_model
+from latent_plan.train import (
+    TrainHistory,
+    TransitionBatch,
+    collect_random_transitions,
+    save_train_history_csv,
+    train_world_model,
+)
 from latent_plan.visualize import (
     decode_latent_trajectory_to_positions,
     save_rollout_animation,
@@ -106,6 +118,42 @@ def load_world_model_from_checkpoint(
     return model, history
 
 
+def resolve_effective_risk_penalty(
+    args: argparse.Namespace,
+    model: WorldModel,
+    env: GridWorldEnv,
+    transitions: TransitionBatch | None,
+) -> tuple[float, Dict[str, Any] | None]:
+    if not args.auto_risk_penalty:
+        return args.risk_penalty, None
+    if model.num_dynamics_models <= 1:
+        print("Auto risk-penalty skipped: ensemble size is 1.")
+        return args.risk_penalty, None
+
+    source_transitions = transitions
+    if source_transitions is None:
+        source_transitions = collect_random_transitions(
+            env=env,
+            num_episodes=args.auto_risk_episodes,
+            horizon=args.auto_risk_horizon,
+            seed=args.seed + 777,
+        )
+
+    samples = collect_uncertainty_error_samples(model=model, transitions=source_transitions, device="cpu")
+    bins = build_calibration_bins(samples["uncertainty"], samples["error"], num_bins=args.auto_risk_bins)
+    stats = summarize_calibration(samples["uncertainty"], samples["error"], bins)
+    suggestions = suggest_risk_penalty(stats)
+    chosen = float(suggestions[args.auto_risk_profile])
+    payload: Dict[str, Any] = {
+        "stats": stats,
+        "suggestions": suggestions,
+        "profile": args.auto_risk_profile,
+        "selected_risk_penalty": chosen,
+        "bins": [item.to_dict() for item in bins],
+    }
+    return chosen, payload
+
+
 def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
     set_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
@@ -122,6 +170,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
             device=device,
         )
         print(f"Loaded checkpoint from: {checkpoint_path}")
+        transitions_for_auto: TransitionBatch | None = None
     else:
         model = WorldModel(
             state_dim=env.state_dim,
@@ -153,6 +202,14 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
             checkpoint_path,
         )
         print(f"Saved checkpoint to: {checkpoint_path}")
+        transitions_for_auto = transitions
+
+    effective_risk_penalty, risk_payload = resolve_effective_risk_penalty(
+        args=args,
+        model=model,
+        env=env,
+        transitions=transitions_for_auto,
+    )
 
     state = env.reset()
     _, info = plan_action(
@@ -168,7 +225,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
         cem_elite_frac=args.cem_elite_frac,
         cem_alpha=args.cem_alpha,
         discount=args.discount,
-        risk_penalty=args.risk_penalty,
+        risk_penalty=effective_risk_penalty,
         goal_state=goal_state,
         goal_bonus=args.goal_bonus,
         goal_tolerance=args.goal_tolerance,
@@ -201,6 +258,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "mode": "main_demo",
         "args": vars(args),
+        "effective_risk_penalty": effective_risk_penalty,
         "env": {
             "width": env.width,
             "height": env.height,
@@ -215,6 +273,10 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
         "device": device,
     }
     manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    if risk_payload is not None:
+        risk_path = output_dir / "risk_calibration.json"
+        risk_path.write_text(json.dumps(risk_payload, indent=2), encoding="utf-8")
+        print(f"Saved auto risk calibration to: {risk_path}")
 
     trajectory_plot_path = save_trajectory_plot(
         env=env,
@@ -257,6 +319,7 @@ def run_demo(args: argparse.Namespace) -> Tuple[Path, Path]:
         predicted_return=float(cast(float, info["predicted_return"])),
     )
     metrics_payload: Dict[str, Any] = {"planner_method": args.planner, **metrics.to_dict()}
+    metrics_payload["effective_risk_penalty"] = effective_risk_penalty
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
 
@@ -304,6 +367,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cem-alpha", type=float, default=0.7)
     parser.add_argument("--discount", type=float, default=0.98)
     parser.add_argument("--risk-penalty", type=float, default=0.0)
+    parser.add_argument("--auto-risk-penalty", action="store_true")
+    parser.add_argument("--auto-risk-profile", type=str, choices=["aggressive", "default", "conservative"], default="default")
+    parser.add_argument("--auto-risk-episodes", type=int, default=40)
+    parser.add_argument("--auto-risk-horizon", type=int, default=12)
+    parser.add_argument("--auto-risk-bins", type=int, default=10)
     parser.add_argument("--goal-bonus", type=float, default=0.0)
     parser.add_argument("--goal-tolerance", type=float, default=0.1)
     parser.add_argument("--eval-steps", type=int, default=32)
